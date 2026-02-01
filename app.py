@@ -11,18 +11,22 @@ st.set_page_config(
 
 # API Configuration
 API_BASE_URL = "https://api.frankfurter.dev/v1"
+COINGECKO_API_URL = "https://api.coingecko.com/api/v3"
 
 
 @st.cache_data(ttl=3600)  # Cache for 1 hour
 def fetch_currencies() -> Dict[str, str]:
-    """Fetch available currencies from Frankfurter API."""
+    """Fetch available currencies from Frankfurter API and add BTC."""
     try:
         response = requests.get(f"{API_BASE_URL}/currencies", timeout=5)
         response.raise_for_status()
-        return response.json()
+        currencies = response.json()
+        # Add Bitcoin
+        currencies["BTC"] = "Bitcoin"
+        return currencies
     except Exception as e:
         st.error(f"Failed to fetch currencies: {e}")
-        # Fallback to common currencies
+        # Fallback to common currencies + BTC
         return {
             "USD": "United States Dollar",
             "EUR": "Euro",
@@ -32,26 +36,114 @@ def fetch_currencies() -> Dict[str, str]:
             "CAD": "Canadian Dollar",
             "CHF": "Swiss Franc",
             "CNY": "Chinese Renminbi Yuan",
+            "BTC": "Bitcoin",
         }
 
 
 @st.cache_data(ttl=300)  # Cache for 5 minutes
-def fetch_latest_rates(base_currency: str, target_currencies: List[str]) -> Optional[Dict]:
-    """Fetch latest exchange rates from Frankfurter API."""
-    if not target_currencies:
+def fetch_btc_rates(vs_currencies: List[str]) -> Optional[Dict]:
+    """Fetch Bitcoin exchange rates from CoinGecko API."""
+    if not vs_currencies:
         return None
     
     try:
-        symbols = ",".join(target_currencies)
-        url = f"{API_BASE_URL}/latest"
-        params = {"base": base_currency, "symbols": symbols}
+        # CoinGecko uses lowercase currency codes
+        vs_currencies_lower = [c.lower() for c in vs_currencies]
+        vs_currencies_str = ",".join(vs_currencies_lower)
+        
+        url = f"{COINGECKO_API_URL}/simple/price"
+        params = {
+            "ids": "bitcoin",
+            "vs_currencies": vs_currencies_str
+        }
         
         response = requests.get(url, params=params, timeout=5)
         response.raise_for_status()
-        return response.json()
-    except Exception as e:
-        st.error(f"Failed to fetch exchange rates: {e}")
+        data = response.json()
+        
+        # Convert to uppercase keys to match our format
+        if "bitcoin" in data:
+            btc_rates = {}
+            for currency_lower, rate in data["bitcoin"].items():
+                btc_rates[currency_lower.upper()] = rate
+            return btc_rates
         return None
+    except Exception as e:
+        st.error(f"Failed to fetch BTC rates: {e}")
+        return None
+
+
+@st.cache_data(ttl=300)  # Cache for 5 minutes
+def fetch_latest_rates(base_currency: str, target_currencies: List[str]) -> Optional[Dict]:
+    """Fetch latest exchange rates from Frankfurter API or CoinGecko (for BTC)."""
+    if not target_currencies:
+        return None
+    
+    # Separate BTC and fiat currencies
+    btc_targets = [c for c in target_currencies if c == "BTC"]
+    fiat_targets = [c for c in target_currencies if c != "BTC"]
+    
+    rates = {}
+    rate_date = None
+    api_source = None
+    
+    # Handle BTC conversions
+    if base_currency == "BTC":
+        # Converting FROM BTC to fiat currencies
+        if fiat_targets:
+            btc_rates = fetch_btc_rates(fiat_targets)
+            if btc_rates:
+                rates.update(btc_rates)
+                api_source = "CoinGecko"
+        # BTC to BTC is 1:1
+        if "BTC" in target_currencies:
+            rates["BTC"] = 1.0
+    
+    elif "BTC" in target_currencies:
+        # Converting FROM fiat TO BTC
+        if base_currency != "BTC":
+            btc_rates = fetch_btc_rates([base_currency])
+            if btc_rates and base_currency in btc_rates:
+                # Convert fiat to BTC: 1 BTC = X fiat, so 1 fiat = 1/X BTC
+                btc_price_in_base = btc_rates[base_currency]
+                rates["BTC"] = 1.0 / btc_price_in_base if btc_price_in_base > 0 else 0
+                api_source = "CoinGecko"
+    
+    # Handle fiat-to-fiat conversions using Frankfurter
+    if fiat_targets and base_currency != "BTC":
+        try:
+            symbols = ",".join(fiat_targets)
+            url = f"{API_BASE_URL}/latest"
+            params = {"base": base_currency, "symbols": symbols}
+            
+            response = requests.get(url, params=params, timeout=5)
+            response.raise_for_status()
+            frankfurter_data = response.json()
+            
+            if "rates" in frankfurter_data:
+                rates.update(frankfurter_data["rates"])
+                rate_date = frankfurter_data.get("date")
+                if not api_source:
+                    api_source = "Frankfurter.app"
+        except Exception as e:
+            if not rates:  # Only show error if we have no rates at all
+                st.error(f"Failed to fetch exchange rates: {e}")
+                return None
+    
+    # If we have mixed sources, we need to handle the date
+    if not rate_date:
+        # For CoinGecko, we don't get a date, so use current date or "Live"
+        rate_date = "Live"
+    
+    if rates:
+        return {
+            "base": base_currency,
+            "date": rate_date,
+            "rates": rates,
+            "source": api_source or "Mixed"
+        }
+    
+    return None
 
 
 def create_local_storage_sync_component():
@@ -193,13 +285,23 @@ def main():
     col1, col2 = st.columns(2)
     
     with col1:
-        amount = st.number_input(
-            "Amount:",
-            min_value=0.0,
-            value=100.0,
-            step=0.01,
-            format="%.2f"
-        )
+        # Adjust step and format based on source currency (use session state)
+        if st.session_state.source_currency == "BTC":
+            amount = st.number_input(
+                "Amount:",
+                min_value=0.0,
+                value=0.001,
+                step=0.00000001,
+                format="%.8f"
+            )
+        else:
+            amount = st.number_input(
+                "Amount:",
+                min_value=0.0,
+                value=100.0,
+                step=0.01,
+                format="%.2f"
+            )
     
     with col2:
         source_currency = st.selectbox(
@@ -232,9 +334,16 @@ def main():
             if rates_data:
                 rates = rates_data.get("rates", {})
                 rate_date = rates_data.get("date", "N/A")
+                api_source = rates_data.get("source", "Unknown")
                 
                 st.success(f"✅ Exchange rates updated as of {rate_date}")
-                st.caption(f"Rates from [Frankfurter.app](https://www.frankfurter.app/)")
+                # Show appropriate API source
+                if api_source == "CoinGecko":
+                    st.caption(f"Rates from [CoinGecko](https://www.coingecko.com/)")
+                elif api_source == "Frankfurter.app":
+                    st.caption(f"Rates from [Frankfurter.app](https://www.frankfurter.app/)")
+                else:
+                    st.caption(f"Rates from [Frankfurter.app](https://www.frankfurter.app/) & [CoinGecko](https://www.coingecko.com/)")
                 
                 # Display results in a clean format
                 st.markdown("### Converted Amounts:")
@@ -247,11 +356,22 @@ def main():
                     rate = rates.get(currency, 0)
                     converted_amount = amount * rate
                     
+                    # Format based on currency type
+                    if currency == "BTC":
+                        # BTC needs more decimal places
+                        amount_str = f"{amount:,.8f}".rstrip('0').rstrip('.')
+                        converted_str = f"{converted_amount:,.8f}".rstrip('0').rstrip('.')
+                        rate_str = f"{rate:.8f}".rstrip('0').rstrip('.')
+                    else:
+                        amount_str = f"{amount:,.2f}"
+                        converted_str = f"{converted_amount:,.2f}"
+                        rate_str = f"{rate:.4f}"
+                    
                     with cols[idx % num_cols]:
                         st.metric(
-                            label=f"{amount:,.2f} {source_currency} → {currency}",
-                            value=f"{converted_amount:,.2f}",
-                            delta=f"Rate: {rate:.4f}" if rate else None
+                            label=f"{amount_str} {source_currency} → {currency}",
+                            value=converted_str,
+                            delta=f"Rate: {rate_str}" if rate else None
                         )
                 
                 # Also show source currency if it was selected

@@ -9,18 +9,21 @@ A modern, interactive web application for real-time currency conversion built wi
 ## ✨ Features
 
 - **Multi-Currency Conversion**: Select multiple target currencies and convert amounts simultaneously
-- **Real-Time Exchange Rates**: Fetches live exchange rates from [Frankfurter.app](https://www.frankfurter.app/) API
+- **Cryptocurrency Support**: Includes Bitcoin (BTC) alongside traditional fiat currencies
+- **Real-Time Exchange Rates**: Fetches live exchange rates from [Frankfurter.app](https://www.frankfurter.app/) and [CoinGecko](https://www.coingecko.com/) APIs
 - **Persistent User Preferences**: Browser localStorage integration to remember selected currencies across sessions
 - **Clean, Intuitive UI**: Modern, user-friendly interface with clear visual feedback
 - **Smart Caching**: Efficient API response caching to minimize network requests and improve performance
 - **Error Handling**: Robust error handling with fallback mechanisms for API failures
 - **Responsive Design**: Clean, centered layout optimized for various screen sizes
+- **Precision Formatting**: Automatic decimal precision for BTC (8 decimals) and fiat currencies (2 decimals)
 
 ## 🛠️ Tech Stack
 
 - **Frontend Framework**: [Streamlit](https://streamlit.io/) - Python-based web framework for data applications
 - **HTTP Client**: `requests` - For API communication
-- **API**: [Frankfurter.app](https://www.frankfurter.app/) - Free, open-source currency exchange rate API
+- **Fiat Currency API**: [Frankfurter.app](https://www.frankfurter.app/) - Free, open-source currency exchange rate API
+- **Cryptocurrency API**: [CoinGecko](https://www.coingecko.com/) - Free cryptocurrency price API
 - **Language**: Python 3.9+
 
 ## 📋 Prerequisites
@@ -74,11 +77,16 @@ cursor_py/
 ## 🔧 Key Implementation Details
 
 ### API Integration
-- **Currency List Endpoint**: Fetches available currencies with full names
-- **Exchange Rates Endpoint**: Retrieves latest rates for selected currency pairs
+- **Fiat Currency API (Frankfurter.app)**: 
+  - Currency list endpoint fetches available fiat currencies with full names
+  - Exchange rates endpoint retrieves latest rates for fiat-to-fiat conversions
+- **Cryptocurrency API (CoinGecko)**:
+  - Bitcoin price endpoint for BTC-to-fiat and fiat-to-BTC conversions
+  - Free tier with no API key required
 - **Caching Strategy**: 
   - Currency list cached for 1 hour (3600s)
   - Exchange rates cached for 5 minutes (300s)
+- **Hybrid Approach**: Automatically selects the appropriate API based on currency types (fiat vs crypto)
 
 ### State Management
 - **Session State**: Manages user selections within the current session
@@ -92,27 +100,40 @@ cursor_py/
 
 ## 🌐 Supported Currencies
 
-The application supports all currencies available through the Frankfurter.app API, including:
-- USD (United States Dollar)
-- EUR (Euro)
-- GBP (British Pound)
-- JPY (Japanese Yen)
-- AUD (Australian Dollar)
-- CAD (Canadian Dollar)
-- CHF (Swiss Franc)
-- CNY (Chinese Renminbi Yuan)
-- And 24+ more currencies
+The application supports:
+- **Fiat Currencies**: All currencies available through the Frankfurter.app API, including:
+  - USD (United States Dollar)
+  - EUR (Euro)
+  - GBP (British Pound)
+  - JPY (Japanese Yen)
+  - AUD (Australian Dollar)
+  - CAD (Canadian Dollar)
+  - CHF (Swiss Franc)
+  - CNY (Chinese Renminbi Yuan)
+  - And 24+ more fiat currencies
 
-*Note: The full list of supported currencies is dynamically fetched from the API.*
+- **Cryptocurrencies**:
+  - BTC (Bitcoin) - via CoinGecko API
+
+*Note: The full list of supported fiat currencies is dynamically fetched from the API. BTC is always available.*
 
 ## 📊 API Information
 
-This application uses the [Frankfurter.app](https://www.frankfurter.app/) API:
+This application uses two free APIs:
+
+### Frankfurter.app (Fiat Currencies)
 - **Free**: No API key required
 - **No Rate Limits**: Unlimited requests
 - **Open Source**: Community-maintained service
 - **Data Source**: European Central Bank reference rates
 - **Update Frequency**: Daily updates around 16:00 CET
+
+### CoinGecko (Cryptocurrency)
+- **Free Tier**: No API key required for basic usage
+- **Rate Limits**: Generous free tier limits
+- **Data Source**: Aggregated from multiple cryptocurrency exchanges
+- **Update Frequency**: Real-time updates (every few minutes)
+- **Coverage**: Supports Bitcoin (BTC) and can be extended to other cryptocurrencies
 
 ## 🎯 Features in Detail
 
@@ -123,6 +144,8 @@ Your selected currencies and source currency preference are automatically saved 
 - Automatically excludes the source currency from conversion results to avoid redundant 1:1 conversions
 - Displays exchange rates alongside converted amounts
 - Shows the date of the exchange rates for transparency
+- Handles mixed conversions (fiat-to-fiat, BTC-to-fiat, fiat-to-BTC) seamlessly
+- Automatic precision formatting: 8 decimals for BTC, 2 decimals for fiat currencies
 
 ### Performance Optimization
 - Intelligent caching reduces API calls
@@ -161,7 +184,9 @@ Potential improvements for future versions:
 - Export results to CSV/PDF
 - Dark mode support
 - Mobile app version
-- Support for cryptocurrency conversions
+- Support for additional cryptocurrencies (ETH, LTC, etc.)
+- Portfolio tracking features
+- Price alerts and notifications
 
 ## 📝 License
 
