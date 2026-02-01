@@ -167,20 +167,4 @@ Potential improvements for future versions:
 
 This project is open source and available under the [MIT License](LICENSE).
 
-## 👤 Author
 
-Created as a demonstration of modern web application development using Python and Streamlit.
-
-## 🙏 Acknowledgments
-
-- [Frankfurter.app](https://www.frankfurter.app/) for providing free, reliable exchange rate data
-- [Streamlit](https://streamlit.io/) for the excellent framework
-- European Central Bank for the reference exchange rate data
-
-## 📞 Support
-
-For issues, questions, or contributions, please open an issue on the GitHub repository.
-
----
-
-**Made with ❤️ using Python and Streamlit**
