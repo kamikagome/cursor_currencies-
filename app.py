@@ -376,10 +376,16 @@ def main():
                 
                 # Also show source currency if it was selected
                 if source_currency in selected_currencies:
+                    # Format based on source currency type
+                    if source_currency == "BTC":
+                        source_amount_str = f"{amount:,.8f}".rstrip('0').rstrip('.')
+                    else:
+                        source_amount_str = f"{amount:,.2f}"
+                    
                     with cols[0]:
                         st.metric(
-                            label=f"{amount:,.2f} {source_currency} → {source_currency}",
-                            value=f"{amount:,.2f}",
+                            label=f"{source_amount_str} {source_currency} → {source_currency}",
+                            value=source_amount_str,
                             delta="Same currency"
                         )
             else:
